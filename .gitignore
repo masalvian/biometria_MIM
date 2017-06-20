@@ -1,0 +1,98 @@
+setwd("C:\\Users\\User\\Doutorado\\Disciplinas\\Biometria de marcadores\\Lista 11")
+
+library("qtl")
+library("onemap")
+##Here, we illustrate how to study 
+##We need to export the list of maps
+# Using the function write_map let us export the 14 linkage groups previously constructed (https://rpubs.com/PAVelasquezVasconez/280676), and to a file named "maps_list.map"
+#write_map(maps_mim, "maps_list.map")
+raw_file <- paste(system.file("extdata", package = "onemap"),
+                  "m_feb06.raw", sep = "\\")
+#Now we can read the data using the R/qtl function read.cross
+fake_f2_qtl <- read.cross("mm", file = "m_feb06.raw", mapfile = "maps_list.map")
+#We can to comparate our map with output of R/qtl 
+
+sim_mimulus <- sim.geno(fake_f2_qtl, n.draws = 200, 
+                step = 2, error.prob = 0.001, 
+                map.function= 'kosambi')
+
+qtl_prob <- calc.genoprob(sim_mimulus, step=5, 
+                error.prob=0.001, map.function=c("kosambi"),
+                  stepwidth=c("fixed"))
+
+scan_QTL <- scantwo(qtl_prob, pheno.col = 8, method = 'hk')
+
+(summary(scan_QTL))
+
+CIMthresold <- scantwo(qtl_prob, method="hk", 
+                n.perm=1000, verbose=T,pheno.col=16)
+save(CIMthresold, file = 'CIMthresold')
+load("CIMthresold")
+summary(CIMthresold)
+CIM<-summary(CIMthresold, alpha = 0.05)
+
+plot_hk_CIM<-hist(CIMthresold$full, col=c("blue"))
+abline(plot_hk_CIM, v=CIM$full,CIMthresold,
+       col="red", lty=6)
+
+plot_hk_CIM<-hist(CIMthresold$fv1, col=c("blue"))
+abline(plot_hk_CIM, v=CIM$fv1,CIMthresold,
+       col="red", lty=6)
+
+plot_hk_CIM<-hist(CIMthresold$int, col=c("blue"))
+abline(plot_hk_CIM, v=CIM$int,CIMthresold,
+       col="red", lty=6)
+
+plot_hk_CIM<-hist(CIMthresold$add, col=c("blue"))
+abline(plot_hk_CIM, v=CIM$add,CIMthresold,
+       col="red", lty=6)
+
+plot_hk_CIM<-hist(CIMthresold$av1, col=c("blue"))
+abline(plot_hk_CIM, v=CIM$av1,CIMthresold,
+       col="red", lty=6)
+
+plot_hk_CIM<-hist(CIMthresold$one, col=c("blue"))
+abline(plot_hk_CIM, v=CIM$one,CIMthresold,
+       col="red", lty=6)
+
+(qtl_inter <- summary(scan_QTL,perms=CIMthresold, 
+                     alpha=c(0.1), pvalues = T))
+
+out_qtl_mim <- makeqtl(qtl_prob, chr=c(6,13), 
+                   pos=c(160,50), what="prob")
+plot(out_qtl_mim)
+
+out_fit1 <- fitqtl(qtl_prob, pheno.col=8, qtl=out_qtl_mim, 
+                   method="hk", get.ests=TRUE)
+summary(out_fit1)
+pen <- calc.penalties(CIMthresold, alpha = 0.1)
+summary(CIMthresold)
+print(pen)
+
+out_stp <- stepwiseqtl(qtl_prob,pheno.col=8,
+              penalties = pen, max.qtl=4, method="hk", 
+              verbose=T, refine.locations = TRUE)
+out_stp
+ref<-refineqtl(qtl_prob, pheno.col=8,out_qtl_mim,method="hk")
+              
+par(mfrow=c(3,1))
+#QTL composite Interval Mapping chromosome 6
+plot(out.cim.com,chr=6, out.hk, 
+     main=substitute("Chromossome 6
+                     by CIM and IM"),
+     col = c("blue", "black"),  lwd=0.5)
+abline(h=CIM_Composite, col="blue", lty=6)
+abline(h=operm.hk[1,1], col="black", lty=6)
+#### Comparison between CIM and MIM
+#Composite Interval Mapping chromossome and Interval Mapping
+plot(out.cim.com,chr=c(13), out.hk, 
+     main=substitute("Chromossome 13 by CIM and IM"),
+     col = c("blue", "black"),  lwd=1)
+abline(h=CIM_Composite, col="blue", lty=6)
+abline(h=operm.hk[1,1], col="black", lty=6)
+plotLodProfile(ref, main=substitute("Multiple Interval Mapping"))
+
+par(mfrow=c(1,3))
+plot(qtl_IntervalMapping, main=substitute("Interval Mapping"))
+plot(qtl_CIM, main=substitute("Composite Interval Mapping"))
+plot(ref, chr= c(6, 13), main=substitute("Multiple Interval Mapping"))
